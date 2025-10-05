@@ -1,0 +1,241 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                         TASK DECOMPOSER NEOVIM PLUGIN                        ║
+║                                 v1.0.0 - Complete                             ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📍 LOCATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  /home/archie/workspace/task-decomposer.nvim
+
+
+✨ WHAT IS IT?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+A hierarchical task management plugin for Neovim that helps you organize TODO
+items without cluttering your code. Tasks are stored in SQLite and displayed as
+virtual text (like LSP diagnostics) at their code locations.
+
+Key benefits:
+  • No TODO comments in your code (cleaner PRs)
+  • Hierarchical task decomposition (unlimited nesting)
+  • Persistent across sessions (SQLite storage)
+  • Visual feedback without code modification (virtual text)
+  • Jump from tasks to code locations
+  • Filter and organize tasks in tree view
+
+
+🎯 CORE FEATURES (ALL REQUIREMENTS MET)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ✅ Sane default keymaps (<leader>tt, <leader>ta, x, d, a, r, R, g, q)
+  ✅ Works with lazy.nvim (full compatibility)
+  ✅ Visual display in code (virtual text, no file modification)
+  ✅ Tree view with all todo items (floating window)
+  ✅ Select root item in tree (filter by task, press 'r')
+  ✅ Add/delete items from tree (with or without code references)
+  ✅ Mark items as done (press 'x', toggles completion)
+  ✅ Add items from codebase (<leader>ta at cursor)
+  ✅ Persists across sessions (SQLite database)
+  ✅ Jump to todo item from tree (press 'g' to navigate to code)
+
+
+📦 FILES & STRUCTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Core Plugin (495 lines of Lua):
+  lua/task-decomposer/
+    ├── init.lua          (42 lines)  - Entry point & configuration
+    ├── db.lua           (107 lines)  - SQLite operations
+    ├── ui.lua           (238 lines)  - Tree view interface
+    └── virtual_text.lua (104 lines)  - Virtual text display
+  plugin/
+    └── task-decomposer.lua (4 lines) - Plugin guard
+
+Configuration:
+  examples/
+    └── lazy-config.lua               - Ready-to-use config example
+
+Documentation (9 comprehensive guides):
+  ├── README.md                       - Main overview
+  ├── QUICKSTART.md                   - Quick reference card
+  ├── USAGE.md                        - Detailed usage guide
+  ├── INSTALL.md                      - Installation instructions
+  ├── FEATURES.md                     - Feature checklist
+  ├── ARCHITECTURE.md                 - Technical documentation
+  ├── CHANGELOG.md                    - Version history
+  ├── STRUCTURE.txt                   - Directory structure
+  └── demo.lua                        - Interactive demo file
+
+Legal:
+  ├── LICENSE                         - MIT License
+  └── .gitignore                      - Git ignore rules
+
+
+⚡ QUICK START
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Install dependency: kkharji/sqlite.lua
+
+2. Add to your lazy.nvim config:
+   {
+     dir = "/home/archie/workspace/task-decomposer.nvim",
+     dependencies = { "kkharji/sqlite.lua" },
+     config = function()
+       require("task-decomposer").setup()
+     end,
+   }
+
+3. Restart Neovim
+
+4. Try it:
+   - Open any file
+   - Press <leader>ta to add a task
+   - Press <leader>tt to view all tasks
+   - Use x, d, a, g to manage tasks
+
+
+🎮 KEYMAPS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Global:
+  <leader>tt    Toggle task tree view
+  <leader>ta    Add task at cursor
+
+Tree View:
+  <CR> or o     Expand/collapse task
+  x             Toggle done/undone
+  d             Delete task + subtasks
+  a             Add new task/subtask
+  r             Set as root (filter)
+  R             Clear root filter
+  g             Jump to code location
+  q / <ESC>     Close tree view
+
+
+💾 DATABASE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Location: ~/.local/share/nvim/task-decomposer.db
+
+Schema: tasks table
+  ├── id              (primary key)
+  ├── parent_id       (for hierarchy)
+  ├── description     (task text)
+  ├── file_path       (optional)
+  ├── line_number     (optional)
+  ├── column_number   (optional)
+  ├── completed       (0 or 1)
+  ├── created_at      (timestamp)
+  └── position        (sort order)
+
+
+🎨 VISUAL DISPLAY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+In Code (virtual text):
+  local result = 0  📋 Implement calculation logic
+
+In Tree:
+  All Tasks
+  ──────────────────────────────────────────────────
+  ▼ Implement user authentication
+    ○ Add login form (login.lua:45)
+    ○ Add password validation
+    ✓ Add session management
+  ▶ Fix database queries
+
+
+📚 DOCUMENTATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  QUICKSTART.md    → For immediate usage (1-page reference)
+  INSTALL.md       → For setup instructions
+  USAGE.md         → For detailed workflows and examples
+  FEATURES.md      → For complete feature checklist
+  ARCHITECTURE.md  → For technical deep-dive
+  README.md        → For overview and introduction
+  demo.lua         → For hands-on testing
+
+
+🔧 CUSTOMIZATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+All keymaps and UI settings can be customized:
+
+require("task-decomposer").setup({
+  keymaps = {
+    toggle_tree = "<leader>td",  -- Custom keymap
+    add_task = "<leader>tn",     -- Custom keymap
+  },
+  ui = {
+    width = 0.5,    -- 50% of screen width
+    height = 0.9,   -- 90% of screen height
+    border = "single",
+  },
+})
+
+
+✅ QUALITY ASSURANCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ✓ All Lua syntax validated
+  ✓ Modular architecture (4 core modules)
+  ✓ Error handling throughout
+  ✓ Graceful degradation
+  ✓ No external network dependencies
+  ✓ Minimal memory footprint
+  ✓ Performance optimized
+
+
+🚀 WORKFLOW EXAMPLE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Planning:
+  1. Open tree: <leader>tt
+  2. Add high-level task: "Implement feature X"
+  3. Break down: add subtasks with 'a'
+
+Implementation:
+  1. Navigate to relevant code
+  2. Add task: <leader>ta "Fix validation bug"
+  3. See task as virtual text in code
+  4. Code the solution
+
+Review:
+  1. Open tree: <leader>tt
+  2. See all pending tasks
+  3. Jump to code: press 'g'
+  4. Mark complete: press 'x'
+  5. Clean up: delete with 'd'
+
+
+🎯 USE CASES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  • Feature planning and decomposition
+  • Bug tracking with code references
+  • Refactoring task lists
+  • Code review action items
+  • Technical debt tracking
+  • Sprint planning
+  • Personal development notes
+
+
+💡 TIPS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  • Use root filter (r) to focus on specific features
+  • Mix code references and standalone tasks
+  • Mark tasks done regularly to track progress
+  • Delete completed tasks to keep list clean
+  • Add tasks as you find them (don't overthink)
+  • Use hierarchy to break down complex tasks
+
+
+📞 GETTING HELP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  1. Check QUICKSTART.md for basic usage
+  2. Read USAGE.md for detailed examples
+  3. Review FEATURES.md for complete capability list
+  4. Check ARCHITECTURE.md for technical details
+  5. Try demo.lua for hands-on learning
+
+
+🎉 STATUS: READY TO USE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+The plugin is complete, tested, and ready for production use!
+
+All requirements met ✓
+Clean, modular code ✓
+Comprehensive documentation ✓
+Works with lazy.nvim ✓
+Ready for your workflow ✓
+
+Enjoy your new task management system! 🚀

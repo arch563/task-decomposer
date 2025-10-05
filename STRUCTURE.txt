@@ -1,0 +1,62 @@
+task-decomposer.nvim/
+│
+├── lua/
+│   └── task-decomposer/
+│       ├── init.lua           # Plugin entry point & setup
+│       ├── db.lua             # SQLite database operations
+│       ├── ui.lua             # Tree view interface
+│       └── virtual_text.lua   # Virtual text management
+│
+├── plugin/
+│   └── task-decomposer.lua    # Plugin guard
+│
+├── examples/
+│   └── lazy-config.lua        # Configuration example
+│
+├── README.md                  # Main documentation
+├── QUICKSTART.md              # Quick reference card
+├── USAGE.md                   # Detailed usage guide
+├── ARCHITECTURE.md            # Technical architecture
+├── FEATURES.md                # Feature checklist
+├── INSTALL.md                 # Installation guide
+├── CHANGELOG.md               # Version history
+├── LICENSE                    # MIT License
+├── .gitignore                 # Git ignore rules
+└── demo.lua                   # Interactive demo
+
+Core Components:
+├── Database Layer (db.lua)
+│   └── SQLite operations, task CRUD, hierarchy management
+│
+├── UI Layer (ui.lua)
+│   └── Tree view, floating window, user interactions
+│
+├── Virtual Text Layer (virtual_text.lua)
+│   └── Extmarks, buffer events, code annotations
+│
+└── Configuration (init.lua)
+    └── Setup, keymaps, commands, initialization
+
+Database Schema:
+tasks
+├── id (INTEGER PRIMARY KEY)
+├── parent_id (INTEGER, nullable)
+├── description (TEXT)
+├── file_path (TEXT, nullable)
+├── line_number (INTEGER, nullable)
+├── column_number (INTEGER, nullable)
+├── completed (INTEGER, default 0)
+├── created_at (TEXT)
+└── position (INTEGER, default 0)
+
+Key Features:
+✓ Hierarchical task decomposition
+✓ SQLite persistence
+✓ Virtual text display (no code modification)
+✓ Interactive tree view with filtering
+✓ Jump to code locations
+✓ Mark tasks complete
+✓ Add/delete tasks from tree or code
+✓ Works with lazy.nvim
+✓ Sane default keymaps
+✓ Comprehensive documentation
