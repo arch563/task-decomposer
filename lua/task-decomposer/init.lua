@@ -120,6 +120,9 @@ function M.setup_highlights()
 		TaskCompleted = { fg = "#9ece6a", bg = "NONE", blend = 50 },
 		-- Task hint number - subtle and dimmed
 		TaskHint = { fg = "#565f89", bg = "NONE", italic = true },
+		-- Progress indicators - blocks per subtask
+		TaskProgressComplete = { fg = "#9ece6a", bg = "NONE", bold = true },   -- Green for completed subtasks
+		TaskProgressIncomplete = { fg = "#e0af68", bg = "NONE", bold = true }, -- Yellow for incomplete subtasks
 	}
 
 	for group, opts in pairs(highlights) do

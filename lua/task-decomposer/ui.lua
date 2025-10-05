@@ -35,6 +35,50 @@ local function get_icon(task, has_children)
   end
 end
 
+-- Calculate completion stats for a task's direct children only
+local function get_completion_stats(task_id)
+  local children = db.get_children(task_id)
+  if #children == 0 then
+    return { total = 0, completed = 0, percentage = 0 }
+  end
+  
+  local total = #children
+  local completed = 0
+  
+  for _, child in ipairs(children) do
+    if child.completed == 1 then
+      completed = completed + 1
+    end
+  end
+  
+  local percentage = total > 0 and (completed / total * 100) or 0
+  return { total = total, completed = completed, percentage = percentage }
+end
+
+-- Get progress indicator blocks - one block per subtask
+local function get_progress_blocks(stats)
+  if stats.total == 0 then
+    return "", {}
+  end
+  
+  local blocks = {}
+  local block_hls = {}
+  
+  for i = 1, stats.total do
+    if i <= stats.completed then
+      -- Completed subtask - checked box
+      table.insert(blocks, "✓")
+      table.insert(block_hls, "TaskProgressComplete")
+    else
+      -- Incomplete subtask - empty box
+      table.insert(blocks, "○")
+      table.insert(block_hls, "TaskProgressIncomplete")
+    end
+  end
+  
+  return table.concat(blocks, ""), block_hls
+end
+
 -- Build hierarchical index (e.g., 1.2.3)
 local function build_task_index(parent_index, child_position)
   if parent_index == "" then
@@ -44,7 +88,7 @@ local function build_task_index(parent_index, child_position)
   end
 end
 
-local function render_tree(lines, task_map, indent, parent_id, parent_index)
+local function render_tree(lines, task_map, indent, parent_id, parent_index, highlights)
   local children = db.get_children(parent_id)
   
   for i, task in ipairs(children) do
@@ -66,24 +110,73 @@ local function render_tree(lines, task_map, indent, parent_id, parent_index)
       end
     end
     
-    local status = task.completed == 1 and "[✓] " or "[ ] "
     local hidden_indicator = task.hidden == 1 and "👁️ " or "" -- Eye icon for hidden
+    
+    -- Add progress blocks for tasks with children
+    local progress_blocks = ""
+    local block_hls = {}
+    local stats = nil
+    if has_children then
+      stats = get_completion_stats(task.id)
+      progress_blocks, block_hls = get_progress_blocks(stats)
+      if progress_blocks ~= "" then
+        progress_blocks = progress_blocks .. " "
+      end
+    end
+    
     local location = ""
     if task.file_path and task.file_path ~= vim.NIL then
       local filename = vim.fn.fnamemodify(task.file_path, ":t")
       location = string.format(" @%s:%d", filename, task.line_number or 0)
     end
     
-    -- Format: [index] icon status description location
-    local line = string.format("%s%s %s%s%s%s", pipe_chars, icon, status, hidden_indicator, task.description, location)
+    -- Format: [index] progress_blocks pipe_chars icon description location
     local index_display = string.format("[%s] ", task_index)
-    line = index_display .. line
+    local line = string.format("%s%s%s%s %s%s", 
+      index_display, progress_blocks, pipe_chars, icon, hidden_indicator, task.description .. location)
     
     table.insert(lines, line)
     task_map[#lines] = task
     
+    -- Store highlight info for each progress block
+    if progress_blocks ~= "" and #block_hls > 0 and stats then
+      -- Calculate byte offsets for each checkbox character
+      local byte_offset = #index_display
+      
+      for j, hl_group in ipairs(block_hls) do
+        -- Each checkbox character (✓ or ○) is 3 bytes in UTF-8
+        local char = j <= stats.completed and "✓" or "○"
+        local char_byte_len = #char
+        
+        local byte_start = byte_offset
+        local byte_end = byte_offset + char_byte_len
+        
+        table.insert(highlights, {
+          line = #lines - 1, -- 0-indexed
+          col_start = byte_start,
+          col_end = byte_end,
+          hl_group = hl_group
+        })
+        
+        byte_offset = byte_offset + char_byte_len
+      end
+    end
+    
+    -- Highlight the main task status icon (○ or ✓)
+    -- Find the position of the icon in the line
+    local icon_offset = #index_display + #progress_blocks + #pipe_chars
+    local icon_byte_len = #icon
+    local icon_hl = task.completed == 1 and "TaskProgressComplete" or "TaskProgressIncomplete"
+    
+    table.insert(highlights, {
+      line = #lines - 1, -- 0-indexed
+      col_start = icon_offset,
+      col_end = icon_offset + icon_byte_len,
+      hl_group = icon_hl
+    })
+    
     if has_children and M.expanded[task.id] then
-      render_tree(lines, task_map, indent + 1, task.id, task_index)
+      render_tree(lines, task_map, indent + 1, task.id, task_index, highlights)
     end
   end
 end
@@ -116,6 +209,7 @@ function M.render()
   
   local lines = {}
   local task_map = {}
+  local highlights = {} -- Track highlights to apply
   M.task_indices = {}
   
   local current_root = state.get_root()
@@ -126,12 +220,12 @@ function M.render()
       lines[1] = "╔═══ Root: " .. root_task.description .. " ═══╗"
       lines[2] = ""
       task_map[1] = root_task
-      render_tree(lines, task_map, 0, current_root, "")
+      render_tree(lines, task_map, 0, current_root, "", highlights)
     end
   else
     lines[1] = "╔═══ All Tasks ═══╗"
     lines[2] = ""
-    render_tree(lines, task_map, 0, nil, "")
+    render_tree(lines, task_map, 0, nil, "", highlights)
   end
   
   -- Add help text at bottom
@@ -141,6 +235,16 @@ function M.render()
   
   api.nvim_buf_set_lines(M.buf, 0, -1, false, lines)
   api.nvim_buf_set_option(M.buf, "modifiable", false)
+  
+  -- Apply highlights for progress indicators
+  if not M.ns_id then
+    M.ns_id = api.nvim_create_namespace("task_decomposer_ui")
+  end
+  api.nvim_buf_clear_namespace(M.buf, M.ns_id, 0, -1)
+  
+  for _, hl in ipairs(highlights) do
+    api.nvim_buf_add_highlight(M.buf, M.ns_id, hl.hl_group, hl.line, hl.col_start, hl.col_end)
+  end
   
   M.task_map = task_map
 end

@@ -5,12 +5,14 @@ A hierarchical task decomposition plugin for Neovim that helps you manage TODO i
 ## Features
 
 - **Hierarchical Tasks**: Create tasks with unlimited levels of subtasks
+- **Progress Indicators**: Visual checkboxes show subtask completion status at a glance
 - **Virtual Text Display**: Tasks appear as virtual text at code locations (no actual TODO comments in your code)
 - **SQLite Storage**: Persistent storage across sessions using SQLite
-- **Tree View**: Interactive tree interface to view and manage all tasks
+- **Tree View**: Interactive tree interface with colored icons and progress tracking
 - **Code References**: Link tasks to specific files and line numbers
 - **Flexible Organization**: Tasks can exist with or without code references
 - **Easy Navigation**: Jump from tree view directly to task locations in code
+- **Snacks.nvim Integration**: Enhanced input dialogs positioned near your cursor
 
 ## Requirements
 
@@ -55,8 +57,10 @@ use {
 
 ### Global Keymaps (default)
 
-- `<leader>tt` - Toggle the task tree view
-- `<leader>ta` - Add a task at the current cursor position
+- `gtt` - Toggle the task tree view
+- `gta` - Add a task at the current cursor position
+- `gtx` - Toggle task completion at cursor
+- `gts` - Sign off completed tasks in current file
 
 ### Tree View Keymaps
 
@@ -64,12 +68,14 @@ When the task tree is open:
 
 - `<CR>` or `o` - Expand/collapse task (if it has subtasks)
 - `x` - Toggle task completion status
+- `h` - Toggle hide/show task
 - `d` - Delete task and all its subtasks
 - `a` - Add a new subtask under the current task
 - `r` - Set current task as the root (filter view to show only this task and its subtasks)
-- `R` - Clear root filter (show all tasks)
+- `u` - Clear root filter (show all tasks)
 - `g` or `<C-g>` - Jump to the task's location in code
 - `q` or `<ESC>` - Close the tree view
+- `?` - Show help
 
 ### Commands
 
