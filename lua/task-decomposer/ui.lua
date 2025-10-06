@@ -88,8 +88,79 @@ local function build_task_index(parent_index, child_position)
   end
 end
 
+-- Wrap text to fit within width, breaking at word boundaries or with hyphen
+local function wrap_text(text, max_width, prefix_width, continuation_prefix)
+  if vim.fn.strdisplaywidth(text) <= max_width then
+    return { text }
+  end
+  
+  local lines = {}
+  local current_line = ""
+  local words = vim.split(text, " ", { plain = true })
+  
+  for j, word in ipairs(words) do
+    local test_line = current_line == "" and word or (current_line .. " " .. word)
+    local display_width = vim.fn.strdisplaywidth(test_line)
+    
+    if display_width <= max_width then
+      current_line = test_line
+    else
+      -- Word doesn't fit, need to break
+      if current_line ~= "" then
+        -- Save current line and start new one
+        table.insert(lines, current_line)
+        current_line = word
+        
+        -- Check if single word is too long for continuation line
+        local cont_max = max_width - vim.fn.strdisplaywidth(continuation_prefix)
+        if vim.fn.strdisplaywidth(word) > cont_max then
+          -- Need to hyphenate the word
+          local chars = vim.fn.split(word, '\\zs') -- Split into characters
+          current_line = ""
+          for k, char in ipairs(chars) do
+            local test = current_line .. char
+            if vim.fn.strdisplaywidth(test) < cont_max - 1 then -- -1 for hyphen
+              current_line = test
+            else
+              table.insert(lines, current_line .. "-")
+              current_line = char
+            end
+          end
+        end
+      else
+        -- Current line is empty, single word is too long
+        local cont_max = max_width - vim.fn.strdisplaywidth(continuation_prefix)
+        local chars = vim.fn.split(word, '\\zs')
+        for k, char in ipairs(chars) do
+          local test = current_line .. char
+          if vim.fn.strdisplaywidth(test) < cont_max - 1 then
+            current_line = test
+          else
+            if current_line ~= "" then
+              table.insert(lines, current_line .. "-")
+            end
+            current_line = char
+          end
+        end
+      end
+    end
+  end
+  
+  if current_line ~= "" then
+    table.insert(lines, current_line)
+  end
+  
+  return lines
+end
+
 local function render_tree(lines, task_map, indent, parent_id, parent_index, highlights)
   local children = db.get_children(parent_id)
+  
+  -- Get window width for wrapping (use buffer width if available)
+  local win_width = 80 -- default fallback
+  if M.win and api.nvim_win_is_valid(M.win) then
+    win_width = api.nvim_win_get_width(M.win)
+  end
   
   for i, task in ipairs(children) do
     local has_children = #db.get_children(task.id) > 0
@@ -101,9 +172,10 @@ local function render_tree(lines, task_map, indent, parent_id, parent_index, hig
     
     -- Build pipe characters for tree visualization
     local pipe_chars = ""
+    local is_last = i == #children
     if indent > 0 then
       pipe_chars = string.rep("│ ", indent - 1)
-      if i == #children then
+      if is_last then
         pipe_chars = pipe_chars .. "└─"
       else
         pipe_chars = pipe_chars .. "├─"
@@ -130,21 +202,37 @@ local function render_tree(lines, task_map, indent, parent_id, parent_index, hig
       location = string.format(" @%s:%d", filename, task.line_number or 0)
     end
     
-    -- Format: [index] progress_blocks pipe_chars icon description location
+    -- Build the prefix (everything before the description)
     local index_display = string.format("[%s] ", task_index)
-    local line = string.format("%s%s%s%s %s%s", 
-      index_display, progress_blocks, pipe_chars, icon, hidden_indicator, task.description .. location)
+    local prefix = index_display .. progress_blocks .. pipe_chars .. icon .. " " .. hidden_indicator
+    local prefix_width = vim.fn.strdisplaywidth(prefix)
     
-    table.insert(lines, line)
+    -- Build continuation prefix (for wrapped lines)
+    local cont_indent = string.rep("│ ", indent)
+    if indent > 0 and not is_last then
+      cont_indent = cont_indent
+    elseif indent > 0 then
+      cont_indent = string.rep("  ", indent)
+    end
+    local continuation_prefix = string.rep(" ", vim.fn.strdisplaywidth(index_display)) .. 
+                                string.rep(" ", vim.fn.strdisplaywidth(progress_blocks)) ..
+                                cont_indent .. "  " -- Extra spaces for alignment
+    
+    -- Wrap the description + location
+    local full_text = task.description .. location
+    local max_width = win_width - prefix_width - 2 -- -2 for padding
+    local wrapped_lines = wrap_text(full_text, max_width, prefix_width, continuation_prefix)
+    
+    -- First line with full prefix
+    local first_line = prefix .. wrapped_lines[1]
+    table.insert(lines, first_line)
     task_map[#lines] = task
     
-    -- Store highlight info for each progress block
+    -- Store highlight info for each progress block on first line
     if progress_blocks ~= "" and #block_hls > 0 and stats then
-      -- Calculate byte offsets for each checkbox character
       local byte_offset = #index_display
       
       for j, hl_group in ipairs(block_hls) do
-        -- Each checkbox character (✓ or ○) is 3 bytes in UTF-8
         local char = j <= stats.completed and "✓" or "○"
         local char_byte_len = #char
         
@@ -152,7 +240,7 @@ local function render_tree(lines, task_map, indent, parent_id, parent_index, hig
         local byte_end = byte_offset + char_byte_len
         
         table.insert(highlights, {
-          line = #lines - 1, -- 0-indexed
+          line = #lines - 1,
           col_start = byte_start,
           col_end = byte_end,
           hl_group = hl_group
@@ -162,18 +250,24 @@ local function render_tree(lines, task_map, indent, parent_id, parent_index, hig
       end
     end
     
-    -- Highlight the main task status icon (○ or ✓)
-    -- Find the position of the icon in the line
+    -- Highlight the main task status icon on first line
     local icon_offset = #index_display + #progress_blocks + #pipe_chars
     local icon_byte_len = #icon
     local icon_hl = task.completed == 1 and "TaskProgressComplete" or "TaskProgressIncomplete"
     
     table.insert(highlights, {
-      line = #lines - 1, -- 0-indexed
+      line = #lines - 1,
       col_start = icon_offset,
       col_end = icon_offset + icon_byte_len,
       hl_group = icon_hl
     })
+    
+    -- Continuation lines (wrapped text)
+    for j = 2, #wrapped_lines do
+      local cont_line = continuation_prefix .. wrapped_lines[j]
+      table.insert(lines, cont_line)
+      task_map[#lines] = task -- Map continuation lines to same task
+    end
     
     if has_children and M.expanded[task.id] then
       render_tree(lines, task_map, indent + 1, task.id, task_index, highlights)
