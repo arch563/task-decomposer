@@ -113,16 +113,17 @@ end
 
 -- Setup custom highlight groups
 function M.setup_highlights()
+	-- Define highlights that work in both GUI and terminal
 	local highlights = {
-		-- Pending task - translucent blue
-		TaskPending = { fg = "#7aa2f7", bg = "NONE", blend = 30 },
-		-- Completed task - translucent gray/green
-		TaskCompleted = { fg = "#9ece6a", bg = "NONE", blend = 50 },
+		-- Pending task - blue (removed blend for terminal compatibility)
+		TaskPending = { fg = "#7aa2f7", ctermfg = 111 },
+		-- Completed task - green (removed blend for terminal compatibility)
+		TaskCompleted = { fg = "#9ece6a", ctermfg = 150 },
 		-- Task hint number - subtle and dimmed
-		TaskHint = { fg = "#565f89", bg = "NONE", italic = true },
+		TaskHint = { fg = "#565f89", ctermfg = 60, italic = true },
 		-- Progress indicators - blocks per subtask
-		TaskProgressComplete = { fg = "#9ece6a", bg = "NONE", bold = true },   -- Green for completed subtasks
-		TaskProgressIncomplete = { fg = "#e0af68", bg = "NONE", bold = true }, -- Yellow for incomplete subtasks
+		TaskProgressComplete = { fg = "#9ece6a", ctermfg = 150, bold = true },   -- Green for completed subtasks
+		TaskProgressIncomplete = { fg = "#e0af68", ctermfg = 179, bold = true }, -- Yellow for incomplete subtasks
 	}
 
 	for group, opts in pairs(highlights) do
