@@ -116,15 +116,15 @@ function M.add_task_at_cursor()
   local line_number = cursor[1]
   local column_number = cursor[2]
   
-  -- Get the current root from shared state
-  local parent_id = state.get_root()
+  -- Get the active task from shared state (where new tasks will be added as subtasks)
+  local parent_id = state.get_active()
   
   -- Build prompt message
   local prompt = "Task description: "
   if parent_id then
-    local root_task = db.get_task(parent_id)
-    if root_task then
-      prompt = string.format("Task (under '%s'): ", root_task.description)
+    local active_task = db.get_task(parent_id)
+    if active_task then
+      prompt = string.format("Task (under '%s'): ", active_task.description)
     end
   end
   

@@ -213,18 +213,38 @@ function M.render()
   M.task_indices = {}
   
   local current_root = state.get_root()
+  local active_task_id = state.get_active()
+  
+  -- Build header with root filter and active task info
+  local header = "╔═══ "
+  if current_root then
+    local root_task = db.get_task(current_root)
+    if root_task then
+      header = header .. "Root: " .. root_task.description
+    end
+  else
+    header = header .. "All Tasks"
+  end
+  
+  -- Add active task indicator
+  if active_task_id then
+    local active_task = db.get_task(active_task_id)
+    if active_task then
+      header = header .. " | Active: " .. active_task.description
+    end
+  end
+  header = header .. " ═══╗"
+  
+  lines[1] = header
+  lines[2] = ""
   
   if current_root then
     local root_task = db.get_task(current_root)
     if root_task then
-      lines[1] = "╔═══ Root: " .. root_task.description .. " ═══╗"
-      lines[2] = ""
       task_map[1] = root_task
       render_tree(lines, task_map, 0, current_root, "", highlights)
     end
   else
-    lines[1] = "╔═══ All Tasks ═══╗"
-    lines[2] = ""
     render_tree(lines, task_map, 0, nil, "", highlights)
   end
   
@@ -354,7 +374,8 @@ end
 
 function M.add_task_ui()
   local task = M.get_current_task()
-  local parent_id = task and task.id or state.get_root()
+  -- Use active task if set, otherwise use current task in tree, otherwise root level
+  local parent_id = state.get_active() or (task and task.id) or nil
   
   -- Use Snacks.input directly if available, otherwise fall back to vim.ui.input
   local has_snacks, snacks = pcall(require, "snacks")
@@ -380,6 +401,21 @@ function M.add_task_ui()
       end
     end)
   end
+end
+
+function M.set_active()
+  local task = M.get_current_task()
+  if task then
+    state.set_active(task.id)
+    M.render()
+    vim.notify("Active task set to: " .. task.description, vim.log.levels.INFO)
+  end
+end
+
+function M.clear_active()
+  state.clear_active()
+  M.render()
+  vim.notify("Active task cleared (new tasks go to root)", vim.log.levels.INFO)
 end
 
 function M.set_root()
@@ -431,16 +467,21 @@ function M.show_help()
     "  d         - Delete task and subtasks",
     "  g         - Jump to task location",
     "",
+    "Active Task (for adding subtasks from anywhere):",
+    "  A         - Set current task as active",
+    "  U         - Clear active task",
+    "",
     "View:",
-    "  r         - Set current task as root",
-    "  u         - Clear root (show all)",
+    "  r         - Set current task as root filter",
+    "  u         - Clear root filter (show all)",
     "  q/<ESC>   - Close sidebar",
     "  ?         - Show this help",
     "",
     "Task Format:",
+    "  ✓✓○○ - Progress (completed/incomplete subtasks)",
     "  [1.2.3] - Hierarchical index",
     "  ├─ └─   - Tree structure",
-    "  [✓]/[ ] - Completion status",
+    "  ✓/○     - Completion status",
     "  👁️      - Hidden task indicator",
     "  @file:line - File location",
     "",
@@ -481,6 +522,8 @@ function M.setup_keymaps()
   vim.keymap.set("n", "h", M.toggle_hidden, opts) -- Toggle hide/show
   vim.keymap.set("n", "d", M.delete_current, opts)
   vim.keymap.set("n", "a", M.add_task_ui, opts)
+  vim.keymap.set("n", "A", M.set_active, opts) -- Set active task (Shift-A)
+  vim.keymap.set("n", "U", M.clear_active, opts) -- Clear active task (Shift-U)
   vim.keymap.set("n", "r", M.set_root, opts)
   vim.keymap.set("n", "u", M.clear_root, opts) -- 'u' for clear root (disables undo)
   vim.keymap.set("n", "g", M.jump_to_task, opts)
